@@ -4,9 +4,26 @@
     "description": "FTN JAM message-base reader.",
     "license": "MIT",
     "type": "library",
+    "keywords": [
+        "fidonet",
+        "ftn",
+        "jam",
+        "laravel",
+        "message-base"
+    ],
+    "homepage": "https://github.com/golded-dev/laravel-ftn-jam",
+    "authors": [
+        {
+            "name": "GoldED.dev contributors"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/golded-dev/laravel-ftn-jam/issues",
+        "source": "https://github.com/golded-dev/laravel-ftn-jam"
+    },
     "require": {
         "php": "^8.4",
-        "golded-dev/laravel-ftn": "*@dev"
+        "golded-dev/laravel-ftn": "^1.0"
     },
     "require-dev": {
         "odinns/coding-style": "^1.0.1",
@@ -25,15 +42,6 @@
             "Golded\\Ftn\\Jam\\Tests\\": "tests/"
         }
     },
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../laravel-ftn",
-            "options": {
-                "symlink": true
-            }
-        }
-    ],
     "scripts": {
         "test": "pest",
         "test:types": "phpstan analyse",

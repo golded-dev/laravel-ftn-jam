@@ -5,7 +5,7 @@ use Golded\Ftn\ParsedMessage;
 
 function jamFixtureBase(): string
 {
-    return __DIR__.'/../../../archive/messages/JAM/TEST/jtest1';
+    return __DIR__.'/../Fixtures/jam/jtest1';
 }
 
 it('reads real JAM messages', function (): void {
