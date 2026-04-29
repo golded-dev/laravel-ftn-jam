@@ -6,9 +6,11 @@ namespace Golded\Ftn\Jam;
 
 use DateTimeImmutable;
 use Golded\Ftn\Contracts\MessageBaseReader;
+use Golded\Ftn\MessageProvenance;
 use Golded\Ftn\ParsedMessage;
 use Golded\Ftn\ReaderOptions;
 use Golded\Ftn\Support\CharsetDetector;
+use Golded\Ftn\Support\ControlLines;
 use Golded\Ftn\Support\Text;
 
 final class JamReader implements MessageBaseReader
@@ -21,6 +23,7 @@ final class JamReader implements MessageBaseReader
     private const int JAMSUB_SENDERNAME = 2;
     private const int JAMSUB_RECEIVERNAME = 3;
     private const int JAMSUB_MSGID = 4;
+    private const int JAMSUB_REPLYID = 5;
     private const int JAMSUB_SUBJECT = 6;
     private const int JAMATTR_DELETED = 0x80000000;
 
@@ -45,7 +48,7 @@ final class JamReader implements MessageBaseReader
         }
 
         try {
-            yield from $this->readMessages($headerHandle, $textHandle, $options);
+            yield from $this->readMessages($headerHandle, $textHandle, $jhrPath, $options);
         } finally {
             fclose($headerHandle);
             fclose($textHandle);
@@ -58,7 +61,7 @@ final class JamReader implements MessageBaseReader
      *
      * @return iterable<ParsedMessage>
      */
-    private function readMessages($headerHandle, $textHandle, ReaderOptions $options): iterable
+    private function readMessages($headerHandle, $textHandle, string $sourcePath, ReaderOptions $options): iterable
     {
         $info = fread($headerHandle, self::JAMHDRINFO_SIZE);
 
@@ -67,6 +70,8 @@ final class JamReader implements MessageBaseReader
         }
 
         while (! feof($headerHandle)) {
+            $headerOffset = ftell($headerHandle);
+            $headerOffset = is_int($headerOffset) ? $headerOffset : null;
             $headerRaw = fread($headerHandle, self::JAMMER_SIZE);
 
             if ($headerRaw === false || strlen($headerRaw) < self::JAMMER_SIZE || !str_starts_with($headerRaw, "JAM\0")) {
@@ -97,6 +102,8 @@ final class JamReader implements MessageBaseReader
             $subject = Text::toUtf8($fields[self::JAMSUB_SUBJECT] ?? '', $charset);
             $postedAt = $header['datewritten'] !== 0 ? new DateTimeImmutable()->setTimestamp($header['datewritten']) : null;
             $rawMsgid = isset($fields[self::JAMSUB_MSGID]) ? rtrim($fields[self::JAMSUB_MSGID], "\x00") : null;
+            $rawReply = isset($fields[self::JAMSUB_REPLYID]) ? rtrim($fields[self::JAMSUB_REPLYID], "\x00") : null;
+            $controlRaw = $this->controlText($rawMsgid, $rawReply, $bodyRaw);
 
             yield new ParsedMessage(
                 msgno: $header['messagenumber'],
@@ -112,8 +119,30 @@ final class JamReader implements MessageBaseReader
                 replyToMsgno: $header['replyto'] ?: null,
                 reply1stMsgno: $header['reply1st'] ?: null,
                 replyNextMsgno: $header['replynext'] ?: null,
+                controlLines: ControlLines::parseMessage($controlRaw),
+                provenance: new MessageProvenance(
+                    sourceType: 'jam',
+                    sourcePath: $sourcePath,
+                    sourceId: (string) $header['messagenumber'],
+                    sourceOffset: $headerOffset,
+                ),
             );
         }
+    }
+
+    private function controlText(?string $rawMsgid, ?string $rawReply, string $bodyRaw): string
+    {
+        $control = '';
+
+        if ($rawMsgid !== null && $rawMsgid !== '') {
+            $control .= "\x01MSGID: {$rawMsgid}\n";
+        }
+
+        if ($rawReply !== null && $rawReply !== '') {
+            $control .= "\x01REPLY: {$rawReply}\n";
+        }
+
+        return $control.$bodyRaw;
     }
 
     /**

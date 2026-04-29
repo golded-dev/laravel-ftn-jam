@@ -18,6 +18,17 @@ it('reads real JAM messages', function (): void {
         ->and($first->externalId)->not->toStartWith('hash:');
 });
 
+it('attaches control metadata and provenance', function (): void {
+    $messages = array_values(iterator_to_array(new JamReader()->read(jamFixtureBase())));
+    $first = firstJamMessage($messages);
+
+    expect($first->controlLines?->msgid)->toBe($first->externalId)
+        ->and($first->provenance?->sourceType)->toBe('jam')
+        ->and($first->provenance?->sourcePath)->toEndWith('/jtest1.jhr')
+        ->and($first->provenance?->sourceId)->toBe((string) $first->msgno)
+        ->and($first->provenance?->sourceOffset)->toBeInt();
+});
+
 /**
  * @param list<ParsedMessage> $messages
  */
